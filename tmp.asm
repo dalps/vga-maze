@@ -1,5 +1,7 @@
 global SetPixel
 
+org 100h ; this seems to stack alignment??? idek
+
 section .bss
 Color   resb 1 ; pointer to variable Color in data section
 
@@ -38,6 +40,24 @@ ClearScreen:
     push word 0 ; x1
     mov byte [Color], 0x4
     call HLine
+
+    push word 142 ; y2
+    push word 73 ; y1
+    push word 142 ; x
+    mov byte [Color], 0x2
+    call VLine
+
+    push word 199 ; y2
+    push word 0 ; y1
+    push word 199 ; x
+    mov byte [Color], 0xa
+    call VLine
+
+    push word 180 ; y2
+    push word 20 ; y1
+    push word 3 ; x
+    mov byte [Color], 0x6
+    call VLine
 
 getKeyStroke:
     xor ax, ax
@@ -128,5 +148,51 @@ HLineLoop:
     loop HLineLoop
 
 EndHLine:
+    pop bp
+    ret 6
+
+
+; x is at bp+4
+; y1 is at bp+6
+; y2 is at bp+8
+VLine:
+    push bp
+    mov bp, sp
+
+    ; y2 < SCREEN_HEIGHT
+    cmp word [bp+8], 200
+    jge EndVLine
+    ; y1 <= y2
+    mov ax, word [bp+8]
+    cmp word [bp+6], ax
+    jg EndVLine
+    ; 0 <= y1
+    cmp word [bp+6], 0
+    jl EndVLine
+    ; 0 <= x < SCREEN_WIDTH
+    cmp word [bp+4], 0
+    jl EndVLine
+    cmp word [bp+4], 200
+    jge EndVLine
+
+    ; line start at offset := 320*y1 + x
+    mov ax, 320
+    imul word [bp+6]
+    add ax, word [bp+4]
+    mov bx, ax
+
+    ; draw y2 - y1 + 1 pixels
+    mov cx, word [bp+8]
+    sub cx, word [bp+6]
+    inc cx
+
+    mov al, [Color]
+
+VLineLoop:
+    mov [es:bx], al
+    add bx, 320 ; step between raster lines (320 bytes apart)
+    loop VLineLoop
+
+EndVLine:
     pop bp
     ret 6
