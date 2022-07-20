@@ -21,30 +21,23 @@ ClearScreen:
 
     loop ClearScreen
 
-    push word 20
-    push word 32
-    mov byte [Color], 0x1
-    call SetPixel
-
-    push word 20
-    push word 33
+    push word 20 ; y
+    push word 80 ; x2
+    push word 32 ; x1
     mov byte [Color], 0xe
-    call SetPixel
+    call HLine
 
-    push word 20
-    push word 31
-    mov byte [Color], 0xe
-    call SetPixel
+    push word 25 ; y
+    push word 100 ; x2
+    push word 20 ; x1
+    mov byte [Color], 0x3
+    call HLine
 
-    push word 19
-    push word 32
-    mov byte [Color], 0xe
-    call SetPixel
-
-    push word 21
-    push word 32
-    mov byte [Color], 0xe
-    call SetPixel
+    push word 120 ; y
+    push word 319 ; x2
+    push word 0 ; x1
+    mov byte [Color], 0x4
+    call HLine
 
 getKeyStroke:
     xor ax, ax
@@ -61,6 +54,7 @@ exitVideoMode:
     mov ax, 0x0003
     int 0x10
     ret ; setting the mode is not enough, you gotta return to the shell!
+
 
 ; x is at bp+4
 ; y is at bp+6
@@ -90,3 +84,49 @@ SetPixel:
 EndSetPixel:
     pop bp
     ret 4
+
+
+; x1 is at bp+4
+; x2 is at bp+6
+; y is at bp+8
+HLine:
+    push bp
+    mov bp, sp
+
+    ; x2 < SCREEN_WIDTH
+    cmp word [bp+6], 320
+    jge EndHLine
+    ; x1 <= x2
+    mov ax, word [bp+6]
+    cmp word [bp+4], ax
+    jg EndHLine
+    ; 0 <= x1
+    cmp word [bp+4], 0
+    jl EndHLine
+    ; 0 <= y < SCREEN_HEIGHT
+    cmp word [bp+8], 0
+    jl EndHLine
+    cmp word [bp+8], 200
+    jge EndHLine
+
+    ; line start at offset := 320*y + x1
+    mov ax, 320
+    imul word [bp+8]
+    add ax, word [bp+4]
+    mov bx, ax
+
+    ; draw x2 - x1 + 1 pixels
+    mov cx, word [bp+6]
+    sub cx, word [bp+4]
+    inc cx
+
+    mov al, [Color]
+
+HLineLoop:
+    mov [es:bx], al
+    inc bx
+    loop HLineLoop
+
+EndHLine:
+    pop bp
+    ret 6
