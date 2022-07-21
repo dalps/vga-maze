@@ -1,5 +1,11 @@
-global SetPixel
+org 100h ; offset in the current segment
 
+section .data
+SCREEN_WIDTH equ 320
+SCREEN_HEIGHT equ 200
+SCREEN_PIXELS equ SCREEN_WIDTH*SCREEN_HEIGHT
+MAZE_COLS equ 40
+MAZE_ROWS equ 25
 
 section .bss
 Color   resb 1 ; pointer to variable Color in data section
@@ -9,21 +15,14 @@ main:
     mov ax, 0x0013
     int 0x10
 
-    mov cx, 64000
     mov ax, 0xA000
     mov es, ax
-    xor bx, bx
-    mov byte [Color], 0xf
-    mov al, [Color]
-
-ClearScreen:
-    mov [es:bx], al
-    inc bx
-
-    loop ClearScreen
+    
+    mov byte [Color], 0xf   
+    call ClearScreen
 
     mov word [Color], 0x7
-    call DrawGrid 
+    call DrawGrid
 
 getKeyStroke:
     xor ax, ax
@@ -41,6 +40,28 @@ exitVideoMode:
     int 0x10
     ret ; setting the mode is not enough, you gotta return to the shell!
 
+; ---------------------------------------------------------------------------------------------------------------------
+; Procedures
+;
+
+; Color is set by the caller
+ClearScreen:
+    push bp
+    mov bp, sp
+
+    mov cx, SCREEN_PIXELS
+    xor bx, bx
+    mov al, [Color]
+
+ClearScreenLoop:
+    mov [es:bx], al
+    inc bx
+
+    loop ClearScreenLoop
+
+    pop bp
+    ret
+
 
 ; x is at bp+4
 ; y is at bp+6
@@ -52,15 +73,15 @@ SetPixel:
     ; check if parameters are legal offsets
     cmp word [bp+4], 0
     jl EndSetPixel
-    cmp word [bp+4], 320
+    cmp word [bp+4], SCREEN_WIDTH
     jge EndSetPixel
     cmp word [bp+6], 0
     jl EndSetPixel
-    cmp word [bp+6], 200
+    cmp word [bp+6], SCREEN_HEIGHT
     jge EndSetPixel
 
     ; offset := 320*y + x
-    mov ax, 320
+    mov ax, SCREEN_WIDTH
     imul word [bp+6]
     add ax, word [bp+4]
     mov bx, ax
@@ -82,7 +103,7 @@ HLine:
     mov bp, sp
 
     ; x2 < SCREEN_WIDTH
-    cmp word [bp+6], 320
+    cmp word [bp+6], SCREEN_WIDTH
     jge EndHLine
     ; x1 <= x2
     mov ax, word [bp+6]
@@ -94,11 +115,11 @@ HLine:
     ; 0 <= y < SCREEN_HEIGHT
     cmp word [bp+8], 0
     jl EndHLine
-    cmp word [bp+8], 200
+    cmp word [bp+8], SCREEN_HEIGHT
     jge EndHLine
 
     ; line start at offset := 320*y + x1
-    mov ax, 320
+    mov ax, SCREEN_WIDTH
     imul word [bp+8]
     add ax, word [bp+4]
     mov bx, ax
@@ -129,7 +150,7 @@ VLine:
     mov bp, sp
 
     ; y2 < SCREEN_HEIGHT
-    cmp word [bp+8], 200
+    cmp word [bp+8], SCREEN_HEIGHT
     jge EndVLine
     ; y1 <= y2
     mov ax, word [bp+8]
@@ -141,11 +162,11 @@ VLine:
     ; 0 <= x < SCREEN_WIDTH
     cmp word [bp+4], 0
     jl EndVLine
-    cmp word [bp+4], 320 ; YOU LEFT 200 IDIOT! DON'T COPY PASTE!!! WASTED SLEEP BECAUSE OF THIS
+    cmp word [bp+4], SCREEN_WIDTH ; YOU LEFT 200 IDIOT! DON'T COPY PASTE!!! WASTED SLEEP BECAUSE OF THIS
     jge EndVLine
 
     ; line start at offset := 320*y1 + x
-    mov ax, 320
+    mov ax, SCREEN_WIDTH
     imul word [bp+6]
     add ax, word [bp+4]
     mov bx, ax
@@ -159,7 +180,7 @@ VLine:
 
 VLineLoop:
     mov [es:bx], al
-    add bx, 320 ; step between raster lines (320 bytes apart)
+    add bx, SCREEN_WIDTH ; step between raster lines (320 bytes apart)
     loop VLineLoop
 
 EndVLine:
