@@ -10,6 +10,7 @@ CELL_SIZE       equ 8
 
 section .data
 Visited         times 1000 db 0
+Neighbors       db -1, 40, 1, -40
 
 section .bss
 Color           resb 1 ; pointer to variable Color in data section
@@ -17,10 +18,6 @@ Seed            resw 1
  
 section .text
 main:
-    mov ax, 999
-    mov dx, 40
-    div dl
-    
     mov ax, 0x0013
     int 0x10
 
@@ -37,6 +34,8 @@ main:
 
     mov word [Color], 0x7
     call DrawGrid
+
+    call VisitBorder
 
 
 getKeyStroke:
@@ -59,13 +58,31 @@ exitVideoMode:
 ; Procedures
 ;
 
-MazeBorder:
+VisitBorder:
     push bp
     mov bp, sp
 
+    xor bx, bx
+    mov cx, MAZE_COLS
+
+VisitHorzBorder:
+    mov byte [Visited + bx], 1
+    mov byte [Visited + bx + MAZE_COLS*MAZE_ROWS-MAZE_ROWS], 1
+    inc bx
+    loop VisitHorzBorder
+
+    xor bx, bx
+    mov cx, MAZE_ROWS
+
+VisitVertBorder:
+    mov byte [Visited + bx-1], 1
+    mov byte [Visited + bx], 1
+    add bx, 40
+    loop VisitVertBorder
 
     pop bp
     ret
+
 
 ; generates a random number between 0 and 3 inclusive
 MiniRNG:
