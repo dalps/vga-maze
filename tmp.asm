@@ -8,14 +8,26 @@ MAZE_COLS       equ 40
 MAZE_ROWS       equ 25
 CELL_SIZE       equ 8
 
+section .data
+Visited         times 1000 db 0
 
 section .bss
 Color           resb 1 ; pointer to variable Color in data section
+Seed            resw 1
  
 section .text
 main:
+    mov ax, 999
+    mov dx, 40
+    div dl
+    
     mov ax, 0x0013
     int 0x10
+
+    xor ax, ax
+    int 0x1a
+    ; number of ticks since midnight is stored in cx:dx (we're just taking the lower 2 bytes here)
+    mov word [Seed], dx
 
     mov ax, 0xA000
     mov es, ax
@@ -25,6 +37,7 @@ main:
 
     mov word [Color], 0x7
     call DrawGrid
+
 
 getKeyStroke:
     xor ax, ax
@@ -45,6 +58,38 @@ exitVideoMode:
 ; ---------------------------------------------------------------------------------------------------------------------
 ; Procedures
 ;
+
+MazeBorder:
+    push bp
+    mov bp, sp
+
+
+    pop bp
+    ret
+
+; generates a random number between 0 and 3 inclusive
+MiniRNG:
+    push bp
+    mov bp, sp
+
+    mov ax, word [Seed]
+    mov dx, ax
+    shl ax, 7
+    xor dx, ax
+    mov ax, dx
+    shr ax, 9
+    xor dx, ax
+    mov ax, dx
+    shl ax, 8
+    xor dx, ax
+    mov ax, dx
+
+    mov word [Seed], ax
+    and ax, 3
+    
+    pop bp
+    ret
+
 
 ; Color is set by the caller
 ClearScreen:
