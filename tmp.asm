@@ -1,6 +1,5 @@
 global SetPixel
 
-org 100h ; this seems to stack alignment??? idek
 
 section .bss
 Color   resb 1 ; pointer to variable Color in data section
@@ -14,50 +13,17 @@ main:
     mov ax, 0xA000
     mov es, ax
     xor bx, bx
-    mov byte [Color], 0x1
+    mov byte [Color], 0xf
+    mov al, [Color]
 
 ClearScreen:
-    mov al, [Color]
     mov [es:bx], al
     inc bx
 
     loop ClearScreen
 
-    push word 20 ; y
-    push word 80 ; x2
-    push word 32 ; x1
-    mov byte [Color], 0xe
-    call HLine
-
-    push word 25 ; y
-    push word 100 ; x2
-    push word 20 ; x1
-    mov byte [Color], 0x3
-    call HLine
-
-    push word 120 ; y
-    push word 319 ; x2
-    push word 0 ; x1
-    mov byte [Color], 0x4
-    call HLine
-
-    push word 142 ; y2
-    push word 73 ; y1
-    push word 142 ; x
-    mov byte [Color], 0x2
-    call VLine
-
-    push word 199 ; y2
-    push word 0 ; y1
-    push word 199 ; x
-    mov byte [Color], 0xa
-    call VLine
-
-    push word 180 ; y2
-    push word 20 ; y1
-    push word 3 ; x
-    mov byte [Color], 0x6
-    call VLine
+    mov word [Color], 0x7
+    call DrawGrid 
 
 getKeyStroke:
     xor ax, ax
@@ -78,6 +44,7 @@ exitVideoMode:
 
 ; x is at bp+4
 ; y is at bp+6
+; Color is set by the caller
 SetPixel:
     push bp
     mov bp, sp
@@ -109,6 +76,7 @@ EndSetPixel:
 ; x1 is at bp+4
 ; x2 is at bp+6
 ; y is at bp+8
+; Color is set by the caller
 HLine:
     push bp
     mov bp, sp
@@ -155,6 +123,7 @@ EndHLine:
 ; x is at bp+4
 ; y1 is at bp+6
 ; y2 is at bp+8
+; Color is set by the caller
 VLine:
     push bp
     mov bp, sp
@@ -172,7 +141,7 @@ VLine:
     ; 0 <= x < SCREEN_WIDTH
     cmp word [bp+4], 0
     jl EndVLine
-    cmp word [bp+4], 200
+    cmp word [bp+4], 320 ; YOU LEFT 200 IDIOT! DON'T COPY PASTE!!! WASTED SLEEP BECAUSE OF THIS
     jge EndVLine
 
     ; line start at offset := 320*y1 + x
@@ -196,3 +165,46 @@ VLineLoop:
 EndVLine:
     pop bp
     ret 6
+
+
+; Color is set by the caller
+DrawGrid:
+    push bp
+    mov bp, sp
+
+    xor dx, dx
+    mov cx, word 25 
+
+RowLoop:
+    push cx
+    push dx
+    push dx ; y
+    push word 319; x2
+    push word 0; x1
+    call HLine
+
+    pop dx
+    add dx, 8
+    pop cx
+
+    loop RowLoop
+
+    xor dx, dx
+    mov cx, word 40
+
+ColLoop:
+    push cx
+    push dx
+    push word 199 ; y2
+    push word 0; y1
+    push dx; x
+    call VLine
+
+    pop dx
+    add dx, 8
+    pop cx
+
+    loop ColLoop
+
+    pop bp
+    ret
