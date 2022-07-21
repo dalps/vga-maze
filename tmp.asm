@@ -1,15 +1,17 @@
 org 100h ; offset in the current segment
 
 section .data
-SCREEN_WIDTH equ 320
-SCREEN_HEIGHT equ 200
-SCREEN_PIXELS equ SCREEN_WIDTH*SCREEN_HEIGHT
-MAZE_COLS equ 40
-MAZE_ROWS equ 25
+SCREEN_WIDTH    equ 320
+SCREEN_HEIGHT   equ 200
+SCREEN_PIXELS   equ SCREEN_WIDTH*SCREEN_HEIGHT
+MAZE_COLS       equ 40
+MAZE_ROWS       equ 25
+CELL_SIZE       equ 8
+
 
 section .bss
-Color   resb 1 ; pointer to variable Color in data section
-
+Color           resb 1 ; pointer to variable Color in data section
+ 
 section .text
 main:
     mov ax, 0x0013
@@ -194,35 +196,35 @@ DrawGrid:
     mov bp, sp
 
     xor dx, dx
-    mov cx, word 25 
+    mov cx, word MAZE_ROWS 
 
 RowLoop:
     push cx
     push dx
     push dx ; y
-    push word 319; x2
+    push word SCREEN_WIDTH-1 ; x2
     push word 0; x1
     call HLine
 
     pop dx
-    add dx, 8
+    add dx, CELL_SIZE
     pop cx
 
     loop RowLoop
 
     xor dx, dx
-    mov cx, word 40
+    mov cx, word MAZE_COLS
 
 ColLoop:
     push cx
     push dx
-    push word 199 ; y2
+    push word SCREEN_HEIGHT-1 ; y2
     push word 0; y1
     push dx; x
     call VLine
 
     pop dx
-    add dx, 8
+    add dx, CELL_SIZE
     pop cx
 
     loop ColLoop
