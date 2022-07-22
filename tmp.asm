@@ -30,8 +30,12 @@ main:
     mov byte [Color], 0xf   
     call ClearScreen
 
+    mov byte [Color], 0x7 
+    call DrawGrid
+
     call VisitBorder
 
+    mov byte [Color], 0xf
     push 41
     call DrawMaze
     
@@ -107,48 +111,50 @@ DrawMaze:
 
         ; destroy the wall separating current cell and visited neighbor
         cmp word [bp-2], 0
-        je DestroyLeftWall
+        je DestroyRightWall     ; when visiting the western neighbor, destroy its eastern wall
         cmp word [bp-2], 1
-        je DestroyBottomWall
+        je DestroyTopWall       ; when visiting the southern neighbor, destroy its northern wall
         cmp word [bp-2], 2
-        je DestroyRightWall
+        je DestroyLeftWall      ; when visiting the eastern neighbor, destroy its western wall
         cmp word [bp-2], 3
-        je DestroyTopWall
-
-        mov byte [Color], 0x1
+        je DestroyBottomWall    ; when visiting the northern neighbor, destory its southern wall
 
         DestroyLeftWall:
             ; VLine(x, y1, y1+8)
-            add si, 8
-            push si ; y2
+            mov ax, si
+            add ax, 8
+            push ax ; y2
             push si ; y1
             push di ; x
             call VLine
             jmp Recursion
         DestroyBottomWall:
             ; HLine(x, x+8, y+8)
-            push si
             add si, 8
-            push si
-            add di, 8
-            push di
+            push si ; y
+            mov ax, di
+            add ax, 8
+            push ax ; x2
+            push di ; x1
             call HLine
             jmp Recursion
         DestroyRightWall:
             ; VLine(x+8, y, y+8)
-            add si, 8
-            push si
-            push si
+            mov ax, si
+            add ax, 8
+            push ax ; y2
+            push si ; y1
             add di, 8
-            push di
+            push di ; x
             call VLine
             jmp Recursion
         DestroyTopWall:
             ; HLine(x, x+8, y)
-            push si
-            add di, 8
-            push di
-            push di
+            push si ; y
+            mov ax, di
+            add ax, 8
+            push ax ; x2
+            push di ; x1
             call HLine
             jmp Recursion
 
