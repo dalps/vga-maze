@@ -7,6 +7,8 @@ MAZE_COLS       equ 40
 MAZE_ROWS       equ 25
 CELL_SIZE       equ 8
 DELAY           equ 50000 ; 0-65535
+VISITED_COLOR   equ 0xa
+DISCOVERED_COLOR equ 0xc
 
 section .data
 Visited         times MAZE_ROWS*MAZE_COLS db 0
@@ -59,17 +61,43 @@ main:
 ; ---------------------------------------------------------------------------------------------------------------------
 ; Procedures
 ;
-; start cell is at bp+4
-DrawMaze:
+
+; fills the inside of a cell with a solid color (set by the caller)
+; cell top-left corner's x is at bp+6
+; cell top-left corner's y is at bp+8
+FillCell:
+    push cx
+    push bp
+    mov bp, sp
+    
+    mov cx, CELL_SIZE-1
+    Fill:
+        inc word [bp+8]
+        ; HLine(x+1, x+7, y)
+        push word [bp+8] ; y
+        mov ax, word [bp+6]
+        add ax, 7
+        push ax
+        mov ax, word [bp+6]
+        inc ax
+        push ax
+        call HLine
+        loop Fill
+
+    pop bp
+    pop cx
+    ret 4
+
+
+; cell's linear offset is at bp+4
+; DI <- x; SI <- y
+GetScreenCoords:
     push bp
     mov bp, sp
 
-    call VisitBorder
-
-    ; get the coordinates of the start cell top-left corner
     mov ax, [bp+4]
     mov dl, MAZE_COLS
-    div dl ; neighbor_x := AH; neighbor_y := AL
+    div dl
 
     xor dx, dx
     mov dl, ah
@@ -87,20 +115,24 @@ DrawMaze:
     imul dl
     mov si, ax
 
-    mov cx, CELL_SIZE-1
+    pop bp
+    ret 2
+
+
+; start cell is at bp+4
+DrawMaze:
+    push bp
+    mov bp, sp
+
+    call VisitBorder
+
+    push word [bp+4]
+    call GetScreenCoords
+
     mov byte [Color], 0x9
-    MarkStart:
-        inc si
-        ; HLine(x+1, x+7, y)
-        push si ; y
-        mov ax, di
-        add ax, 7
-        push ax
-        mov ax, di
-        inc ax
-        push ax
-        call HLine
-        loop MarkStart
+    push si ; y
+    push di ; x
+    call FillCell
 
     mov byte [Color], 0xf
     push word [bp+4]
@@ -147,26 +179,15 @@ Walk:
         je Continue ; neighbor has been visited and must be skipped
 
         ; get the coordinates of the neighbor's cell top-left corner
-        mov ax, bx
-        mov dl, MAZE_COLS
-        div dl ; neighbor_x := AH; neighbor_y := AL
+        push bx
+        call GetScreenCoords
 
-        ; convert to screen coordinates: vga_x := neighbor_x*8; vga_y := neighbor_y*8
-        xor dx, dx
-        mov dl, ah
-        mov di, dx ; save neighbor_x
-        mov dl, al
-        mov si, dx ; save neighbor_y
+        mov byte [Color], DISCOVERED_COLOR
+        push si ; y
+        push di ; x
+        call FillCell
 
-        mov ax, di
-        mov dl, CELL_SIZE
-        imul dl
-        mov di, ax
-        
-        mov ax, si
-        mov dl, CELL_SIZE
-        imul dl
-        mov si, ax
+        mov byte [Color], DISCOVERED_COLOR
 
         ; destroy the wall separating current cell and visited neighbor
         cmp word [bp-2], 0
@@ -243,6 +264,15 @@ Walk:
 
         dec cx
         jnz VisitNeighbors
+
+    ; cell and all of its neighbors have been visited; mark accordingly
+    push word [bp+6]
+    call GetScreenCoords
+
+    mov byte [Color], VISITED_COLOR
+    push si ; y
+    push di ; x
+    call FillCell
 
     Exit:
         mov sp, bp
