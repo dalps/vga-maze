@@ -116,41 +116,49 @@ DrawMaze:
         je DestroyBottomWall    ; when visiting the northern neighbor, destory its southern wall
 
         DestroyLeftWall:
-            ; VLine(x, y1, y1+8)
+            ; VLine(x, y1+1, y1+7)
             mov ax, si
-            add ax, 8
+            add ax, 7
             push ax ; y2
-            push si ; y1
+            mov ax, si
+            inc ax
+            push ax ; y1
             push di ; x
             call VLine
             jmp Recursion
         DestroyBottomWall:
-            ; HLine(x, x+8, y+8)
+            ; HLine(x+1, x+7, y+8)
             add si, 8
             push si ; y
             mov ax, di
-            add ax, 8
+            add ax, 7
             push ax ; x2
-            push di ; x1
+            mov ax, di
+            inc ax
+            push ax ; x1
             call HLine
             jmp Recursion
         DestroyRightWall:
-            ; VLine(x+8, y, y+8)
+            ; VLine(x+8, y+1, y+7)
             mov ax, si
-            add ax, 8
+            add ax, 7
             push ax ; y2
-            push si ; y1
+            mov ax, si
+            inc ax
+            push ax ; y1
             add di, 8
             push di ; x
             call VLine
             jmp Recursion
         DestroyTopWall:
-            ; HLine(x, x+8, y)
+            ; HLine(x+1, x+7, y)
             push si ; y
             mov ax, di
-            add ax, 8
+            add ax, 7
             push ax ; x2
-            push di ; x1
+            mov ax, di
+            inc ax
+            push ax ; x1
             call HLine
             jmp Recursion
 
