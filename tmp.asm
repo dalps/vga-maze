@@ -34,13 +34,10 @@ main:
     mov byte [Color], 0x7 
     call DrawWalls
 
-    call VisitBorder
-
     push MAZE_ROWS*MAZE_COLS-MAZE_COLS-2    ; cell at (24;38)
     push MAZE_ROWS+1                        ; cell at (1;1)
     call MiniRNG ; pick a starting cell randomly from the interval [41;958]
     push ax
-    mov byte [Color], 0xf
     call DrawMaze
     
     getKeyStroke:
@@ -62,9 +59,59 @@ main:
 ; ---------------------------------------------------------------------------------------------------------------------
 ; Procedures
 ;
+; start cell is at bp+4
+DrawMaze:
+    push bp
+    mov bp, sp
+
+    call VisitBorder
+
+    ; get the coordinates of the start cell top-left corner
+    mov ax, [bp+4]
+    mov dl, MAZE_COLS
+    div dl ; neighbor_x := AH; neighbor_y := AL
+
+    xor dx, dx
+    mov dl, ah
+    mov di, dx
+    mov dl, al
+    mov si, dx
+
+    mov ax, di
+    mov dl, CELL_SIZE
+    imul dl
+    mov di, ax
+    
+    mov ax, si
+    mov dl, CELL_SIZE
+    imul dl
+    mov si, ax
+
+    mov cx, CELL_SIZE-1
+    mov byte [Color], 0x9
+    MarkStart:
+        inc si
+        ; HLine(x+1, x+7, y)
+        push si ; y
+        mov ax, di
+        add ax, 7
+        push ax
+        mov ax, di
+        inc ax
+        push ax
+        call HLine
+        loop MarkStart
+
+    mov byte [Color], 0xf
+    push word [bp+4]
+    call Walk
+
+    pop bp
+    ret 2
+
 
 ; linear index of current cell is at [bp+6]
-DrawMaze:
+Walk:
     push cx ; save caller's iteration number
     push bp
     mov bp, sp
@@ -134,7 +181,7 @@ DrawMaze:
         ; cancel only the inner pixels so walls don't intersect
         ; this is achieved by increasing the lower limit and decreasing the upper limit
         DestroyLeftWall:
-            ; VLine(x, y1+1, y1+7)
+            ; VLine(x, y+1, y+7)
             mov ax, si
             add ax, 7
             push ax ; y2
@@ -143,7 +190,7 @@ DrawMaze:
             push ax ; y1
             push di ; x
             call VLine
-            jmp Recursion
+            jmp Recurse
         DestroyBottomWall:
             ; HLine(x+1, x+7, y+8)
             add si, 8
@@ -155,7 +202,7 @@ DrawMaze:
             inc ax
             push ax ; x1
             call HLine
-            jmp Recursion
+            jmp Recurse
         DestroyRightWall:
             ; VLine(x+8, y+1, y+7)
             mov ax, si
@@ -167,7 +214,7 @@ DrawMaze:
             add di, 8
             push di ; x
             call VLine
-            jmp Recursion
+            jmp Recurse
         DestroyTopWall:
             ; HLine(x+1, x+7, y)
             push si ; y
@@ -178,11 +225,11 @@ DrawMaze:
             inc ax
             push ax ; x1
             call HLine
-            jmp Recursion
+            jmp Recurse
 
-        Recursion:
+        Recurse:
             push bx
-            call DrawMaze
+            call Walk
 
     Continue:
         ; next <- (next + 1) % 4
