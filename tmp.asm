@@ -31,7 +31,7 @@ main:
     call ClearScreen
 
     mov byte [Color], 0x7 
-    call DrawGrid
+    call DrawWalls
 
     call VisitBorder
 
@@ -383,9 +383,10 @@ VLine:
 
 
 ; Color is set by the caller
-DrawGrid:
+DrawWalls:
     push bp
     mov bp, sp
+
 
     xor dx, dx
     mov cx, word MAZE_ROWS 
@@ -409,6 +410,37 @@ DrawGrid:
 
         add dx, CELL_SIZE
         loop ColLoop
+
+
+    xor dx, dx
+    mov cx, word CELL_SIZE
+    DrawBorder:
+        push dx ; y
+        push SCREEN_WIDTH-1 ; x2
+        push 0 ; x1
+        call HLine
+
+        mov ax, dx
+        add ax, SCREEN_HEIGHT-CELL_SIZE
+        push ax ; y
+        push SCREEN_WIDTH-1 ; x2
+        push 0 ; x1
+        call HLine
+
+        push SCREEN_HEIGHT-1 ; y2
+        push 0 ; y1
+        push dx ; x
+        call VLine
+
+        mov ax, dx
+        add ax, SCREEN_WIDTH-CELL_SIZE
+        push SCREEN_HEIGHT-1
+        push 0
+        push ax
+        call VLine
+
+        inc dx
+        loop DrawBorder
 
 
     pop bp
