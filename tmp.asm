@@ -35,8 +35,11 @@ main:
 
     call VisitBorder
 
+    push MAZE_ROWS*MAZE_COLS-MAZE_COLS-2    ; cell at (24;38)
+    push MAZE_ROWS+1                        ; cell at (1;1)
+    call MiniRNG ; pick a starting cell randomly from the interval [41;958]
+    push ax
     mov byte [Color], 0xf
-    push 41
     call DrawMaze
     
     getKeyStroke:
@@ -71,6 +74,8 @@ DrawMaze:
     mov byte [Visited + bx], 1
 
     ; get a random starting point for the scan of the neightbors' list
+    push 3
+    push 0
     call MiniRNG
     mov word [bp-2], ax
 
@@ -218,7 +223,9 @@ VisitBorder:
     ret
 
 
-; generates a random number between 0 and 3 inclusive
+; min is at bp+4
+; max is at bp+6
+; generates a random number between min and max inclusive
 MiniRNG:
     push bp
     mov bp, sp
@@ -227,7 +234,6 @@ MiniRNG:
     ; seed ^= seed << 7
     ; seed ^= seed >> 9
     ; seed ^= seed << 8
-    ; -> seed & 3
     mov ax, word [Seed]
     mov dx, ax
     shl ax, 7
@@ -240,11 +246,19 @@ MiniRNG:
     xor dx, ax
     mov ax, dx
 
-    mov word [Seed], ax
-    and ax, 3
+    mov word [Seed], ax ; updatedSeed
+
+    ; return min + updatedSeed % (max - min + 1)
+    xor dx, dx
+    mov cx, word [bp+6]
+    sub cx, word [bp+4]
+    inc cx
+    div cx
+    add dx, [bp+4]
     
+    mov ax, dx
     pop bp
-    ret
+    ret 4
 
 
 ; Color is set by the caller
