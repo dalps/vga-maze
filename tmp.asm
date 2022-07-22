@@ -6,6 +6,7 @@ SCREEN_PIXELS   equ SCREEN_WIDTH*SCREEN_HEIGHT
 MAZE_COLS       equ 40
 MAZE_ROWS       equ 25
 CELL_SIZE       equ 8
+DELAY           equ 50000 ; 0-65535
 
 section .data
 Visited         times MAZE_ROWS*MAZE_COLS db 0
@@ -78,6 +79,12 @@ DrawMaze:
     push 0
     call MiniRNG
     mov word [bp-2], ax
+
+    ; each cell waits a few microsecond before visiting its neighbors
+    mov ah, 0x86
+    xor cx, cx
+    mov dx, DELAY
+    int 0x15
 
     mov cx, 4
 
