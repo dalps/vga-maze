@@ -23,6 +23,10 @@ main:
     mov ax, 0x0013
     int 0x10
 
+    mov ax, 0
+    int 0x1a
+    mov word [Seed], dx ; number of ticks since midnight is stored in cx:dx (we're just taking the lower 2 bytes here)
+
     mov byte [Color], 0xf   
     call ClearScreen
 
@@ -66,13 +70,13 @@ DrawMaze:
     mov bx, word [bp+6]
     mov byte [Visited + bx], 1
 
-    mov word [bp-2], 0 ; visitee index
+    ; get a random starting point for the scan of the neightbors' list
+    call MiniRNG
+    mov word [bp-2], ax
+
     mov cx, 4
 
     VisitNeighbors:
-        cmp cx, 0
-        je Exit
-
         ; compute the linear offset of the neighbor
         mov bx, word [bp-2]
         add bx, bx
@@ -115,6 +119,8 @@ DrawMaze:
         cmp word [bp-2], 3
         je DestroyBottomWall    ; when visiting the northern neighbor, destory its southern wall
 
+        ; cancel only the inner pixels so walls don't intersect
+        ; this is achieved by increasing the lower limit and decreasing the upper limit
         DestroyLeftWall:
             ; VLine(x, y1+1, y1+7)
             mov ax, si
@@ -167,14 +173,23 @@ DrawMaze:
             call DrawMaze
 
     Continue:
-        inc word [bp-2]
-        jmp VisitNeighbors
+        ; next <- (next + 1) % 4
+        mov ax, word [bp-2]
+        inc ax
+        mov dl, 4
+        div dl
+        mov al, ah
+        mov ah, 0
+        mov word [bp-2], ax
+
+        dec cx
+        jnz VisitNeighbors
 
     Exit:
         mov sp, bp
         pop bp
         pop cx ; restore caller's iteration number
-        ret 2 ; you gotta clear the parameter from the stack!
+        ret 2 ; you gotta clear the parameter (word) from the stack!
 
 
 VisitBorder:
