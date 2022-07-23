@@ -7,22 +7,23 @@ SCREEN_PIXELS   equ SCREEN_WIDTH*SCREEN_HEIGHT
 CELL_SIZE       equ 8
 MAZE_COLS       equ SCREEN_WIDTH/CELL_SIZE
 MAZE_ROWS       equ SCREEN_HEIGHT/CELL_SIZE
-WALK_DELAY           equ 50000 ; time to wait before visiting neighbors; can range from 0 to65535
+WALK_DELAY      equ 5000 ; time to wait between visits; can range from 0 to65535
 
 START_COLOR         equ 0x36
 WALL_COLOR          equ 0x08
 BORDER_COLOR        equ 0x08
 BACKGROUND_COLOR    equ 0x0f
 VISITED_COLOR       equ 0x42
-DISCOVERED_COLOR    equ 0x34
+DISCOVERED_COLOR    equ 0x1e
 
 section .data
-Visited         times MAZE_ROWS*MAZE_COLS db 0  ; keeps track of visited cells
-Neighbors       dw -1, MAZE_COLS, 1, -MAZE_COLS ; relative offsets in the maze's grid
+Visited         times MAZE_ROWS*MAZE_COLS db 0 ; keeps track of visited cells
+Neighbors       dw -1, MAZE_COLS, 1, -MAZE_COLS ; cardinal directions offsets; WEST, SOUTH, EAST, NORTH respectively
 
 section .bss
 Color           resb 1 ; each pixel is a byte representing the displayed color
 Seed            resw 1
+
  
 section .text
 main:
@@ -39,29 +40,35 @@ main:
     int 0x1a            ; BIOS stores number of ticks since midnight in CX:DX
     mov word [Seed], dx ; the lower two bytes will suffice
 
-    ; flood the screen with a solid color, then draw a grid pattern
-    mov byte [Color], BACKGROUND_COLOR   
-    call FillScreen
-    call DrawWalls
+    Restart:
+        ; flood the screen with a solid color, then draw a grid pattern
+        mov byte [Color], BACKGROUND_COLOR   
+        call FillScreen
+        call DrawWalls
 
-    ; pick a random cell from where to begin walking the pattern
-    push MAZE_ROWS*MAZE_COLS-MAZE_COLS-2    ; cell at (24;38)
-    push MAZE_ROWS+1                        ; cell at (1;1)
-    call MiniRNG 
-    push ax
-    call DrawMaze
-    
-    ; wait until user enters either 'q' or 'Q' to exit the program
-    GetQuitChar:
+        ; pick a random cell from where to begin walking the pattern
+        push MAZE_ROWS*MAZE_COLS-MAZE_COLS-2    ; cell at (24;38)
+        push MAZE_ROWS+1                        ; cell at (1;1)
+        call MiniRNG 
+        push ax
+        call DrawMaze
+     
+    GetChar:
         ; read a keystroke from the keyboard (AH = 0x0)
         xor ax, ax
         int 16h ; BIOS stores ASCII character in AL; waits if buffer is empty
-
+        
+        ; q / Q: quit the program
+        ; r / R: run the generator again
         cmp al, 'q'
         je ResetMode
         cmp al, 'Q'
         je ResetMode
-        jmp GetQuitChar
+        cmp al, 'r'
+        je Restart
+        cmp al, 'R'
+        je Restart
+        jmp GetChar ; consume another character from the keyboard buffer if none matches
 
     ResetMode:
         ; set the video mode back to text mode (AL = 0x03)
@@ -343,7 +350,8 @@ Walk:
 
 
 ; ----------------------------------------------------------------------------------------------------------------------
-; Marks the cells at the screen border as visited so the walking algorithm doesn't have to.
+; Initializes the visit array to zero and marks the cells at the screen border as visited to prevent the walking
+; algorithm going past the screen boundary .
 ;
 ; Stack at start of useful work:
 ;           RET ADDR    BP+2
@@ -353,6 +361,16 @@ VisitBorder:
     push bp
     mov bp, sp
 
+    ; set all cells to unvisited
+    xor bx, bx
+    mov cx, MAZE_COLS*MAZE_ROWS
+
+    SetZero:
+        mov byte [Visited + bx], 0
+        inc bx
+        loop SetZero
+
+    ; mark cells at top and bottom border as visited
     xor bx, bx
     mov cx, MAZE_COLS
 
@@ -362,6 +380,7 @@ VisitBorder:
         inc bx
         loop VisitHorzBorder
 
+    ; mark cells at left and right border as visited
     xor bx, bx
     mov cx, MAZE_ROWS
 
