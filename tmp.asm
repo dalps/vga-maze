@@ -21,7 +21,7 @@ Visited         times MAZE_ROWS*MAZE_COLS db 0 ; keeps track of visited cells
 Neighbors       dw -1, MAZE_COLS, 1, -MAZE_COLS ; cardinal directions offsets; WEST, SOUTH, EAST, NORTH respectively
 
 section .bss
-Color           resb 1 ; each pixel is a byte representing the displayed color
+Color           resb 1 ; value corresponding to a color in the VGA palette
 Seed            resw 1
 
  
@@ -41,11 +41,6 @@ main:
     mov word [Seed], dx ; the lower two bytes will suffice
 
     Restart:
-        ; flood the screen with a solid color, then draw a grid pattern
-        mov byte [Color], BACKGROUND_COLOR   
-        call FillScreen
-        call DrawWalls
-
         ; pick a random cell from where to begin walking the pattern
         push MAZE_ROWS*MAZE_COLS-MAZE_COLS-2    ; cell at (24;38)
         push MAZE_ROWS+1                        ; cell at (1;1)
@@ -79,85 +74,99 @@ main:
 
 
 ; ----------------------------------------------------------------------------------------------------------------------
-; Fills the inside of a maze cell of coordinates (x,y) with a solid color.
-; Caller may specify the desired color in the global variable Color.
+; Draws a grid pattern of MAZE_COLS*MAZE_ROWS square cells of side CELL_SIZE representing the labyrinth's walls.
+; Walls (a cell's sides) are one-pixel-thick vertical and horizontal lines sharing the color specified in the WALL_COLOR
+; constant. Cells at the border of the screen are filled with the color specified in the BORDER_COLOR constant.
 ;
 ; Stack at start of useful work:
-;           y           BP+8 (cell's row number)
-;           x           BP+6 (cell's column number)
-;           RET ADDR    BP+4
-;           CX          BP+2 (caller's iteration counter)
-; SP -->    BP          BP+0
-; ----------------------------------------------------------------------------------------------------------------------
-FillCell:
-    push cx
-    push bp
-    mov bp, sp
-    
-    mov cx, CELL_SIZE-1
-    Fill:
-        ; HLine(x+1, x+7, y+1)
-        inc word [bp+8]
-        push word [bp+8]
-        mov ax, word [bp+6]
-        add ax, 7
-        push ax
-        mov ax, word [bp+6]
-        inc ax
-        push ax
-        call HLine
-        loop Fill
-
-    pop bp
-    pop cx
-    ret 4
-
-
-; ----------------------------------------------------------------------------------------------------------------------
-; Get the screen coordinates (x,y) of a maze cell's top-left corner from its offset in the maze array. This is done by
-; obtaining the cell coordinates from the equation cell_offset = cell_y*MAZE_COLS + cell_x and then scaling them down by
-; a factor of the square cell size.
-; Returns x in DI and y in SI.
-;
-; Stack at start of useful work:
-;           cell_offset BP+4 (cell's linear offset; can be any value in [0;MAZE_ROWS*MAZE_COLS])
 ;           RET ADDR    BP+2
 ; SP -->    BP          BP+0
 ; ----------------------------------------------------------------------------------------------------------------------
-GetScreenCoords:
+DrawWalls:
     push bp
     mov bp, sp
 
-    ; convert the linear offset to cell coordinates
-    ; cell_x := cell_offset % MAZE_COLS
-    ; cell_y := cell_offset / MAZE_COLS 
-    mov ax, [bp+4]
-    mov dl, MAZE_COLS
-    div dl
+    mov byte [Color], WALL_COLOR
 
-    ; DI <- cell_x
-    ; SI <- cell_y
+    ; draw MAZE_ROWS rows of length SCREEN_WIDTH spaced CELL_SIZE pixels each
     xor dx, dx
-    mov dl, ah
-    mov di, dx
-    mov dl, al
-    mov si, dx
+    mov cx, word MAZE_ROWS
+    RowLoop:
+        push dx ; y
+        push word SCREEN_WIDTH-1 ; x2
+        push word 0 ; x1
+        call HLine
 
-    ; convert cell coordinates to screen coordinates
-    ; DI <- DI*CELL_SIZE
-    ; SI <- SI*CELL_SIZE
-    mov ax, di
-    mov dl, CELL_SIZE
-    imul dl
-    mov di, ax
-    
-    mov ax, si
-    mov dl, CELL_SIZE
-    imul dl
-    mov si, ax
+        add dx, CELL_SIZE
+        loop RowLoop
+
+    ; draw MAZE_COLS columns of length SCREEN_HEIGHT spaced CELL_SIZE pixels each
+    xor dx, dx
+    mov cx, word MAZE_COLS
+    ColLoop:
+        push word SCREEN_HEIGHT-1 ; y2
+        push word 0; y1
+        push dx ; x
+        call VLine
+
+        add dx, CELL_SIZE
+        loop ColLoop
+
+
+    mov byte [Color], BORDER_COLOR
+
+    ; fill in the border cells with a single color by drawing 8 adjacent columns/rows for each side
+    xor dx, dx
+    mov cx, word CELL_SIZE
+    FillBorder:
+        ; top rows
+        push dx ; y
+        push SCREEN_WIDTH-1 ; x2
+        push 0 ; x1
+        call HLine
+
+        ; bottom rows
+        mov ax, dx
+        add ax, SCREEN_HEIGHT-CELL_SIZE
+        push ax ; y
+        push SCREEN_WIDTH-1 ; x2
+        push 0 ; x1
+        call HLine
+
+        ; left columns
+        push SCREEN_HEIGHT-1 ; y2
+        push 0 ; y1
+        push dx ; x
+        call VLine
+
+        ; right columns
+        mov ax, dx
+        add ax, SCREEN_WIDTH-CELL_SIZE
+        push SCREEN_HEIGHT-1
+        push 0
+        push ax
+        call VLine
+
+        inc dx
+        loop FillBorder
+
+
+    ; close-off the grid pattern in case WALL_COLOR and BORDER_COLOR are different values
+    mov byte [Color], WALL_COLOR
+
+    push SCREEN_HEIGHT-CELL_SIZE ; y
+    push SCREEN_WIDTH-CELL_SIZE ; x2
+    push CELL_SIZE ; x1
+    call HLine
+
+    push SCREEN_HEIGHT-CELL_SIZE ; y2
+    push CELL_SIZE ; y1
+    push SCREEN_WIDTH-CELL_SIZE ; x
+    call VLine
+
 
     pop bp
-    ret 2
+    ret
 
 
 ; ----------------------------------------------------------------------------------------------------------------------
@@ -174,8 +183,13 @@ DrawMaze:
     push bp
     mov bp, sp
 
+    ; flood the screen with a solid color, then draw a grid pattern
+    mov byte [Color], BACKGROUND_COLOR   
+    call FillScreen
+    call DrawWalls
+
     ; set Visited array so border cells cant be walked on
-    call VisitBorder
+    call InitVisited
 
     ; color-in the starting cell
     push word [bp+4]
@@ -272,7 +286,7 @@ Walk:
         DestroyLeftWall:
             ; VLine(x, y+1, y+7)
             mov ax, si
-            add ax, 7
+            add ax, CELL_SIZE-1
             push ax ; y2
             mov ax, si
             inc ax
@@ -282,10 +296,10 @@ Walk:
             jmp Recurse
         DestroyBottomWall:
             ; HLine(x+1, x+7, y+8)
-            add si, 8
+            add si, CELL_SIZE
             push si ; y
             mov ax, di
-            add ax, 7
+            add ax, CELL_SIZE-1
             push ax ; x2
             mov ax, di
             inc ax
@@ -295,12 +309,12 @@ Walk:
         DestroyRightWall:
             ; VLine(x+8, y+1, y+7)
             mov ax, si
-            add ax, 7
+            add ax, CELL_SIZE-1
             push ax ; y2
             mov ax, si
             inc ax
             push ax ; y1
-            add di, 8
+            add di, CELL_SIZE
             push di ; x
             call VLine
             jmp Recurse
@@ -308,7 +322,7 @@ Walk:
             ; HLine(x+1, x+7, y)
             push si ; y
             mov ax, di
-            add ax, 7
+            add ax, CELL_SIZE-1
             push ax ; x2
             mov ax, di
             inc ax
@@ -350,14 +364,14 @@ Walk:
 
 
 ; ----------------------------------------------------------------------------------------------------------------------
-; Initializes the visit array to zero and marks the cells at the screen border as visited to prevent the walking
+; Initializes the visit array to zeros and marks the cells at the screen border as visited to prevent the walking
 ; algorithm going past the screen boundary .
 ;
 ; Stack at start of useful work:
 ;           RET ADDR    BP+2
 ; SP -->    BP          BP+0
 ; ----------------------------------------------------------------------------------------------------------------------
-VisitBorder:
+InitVisited:
     push bp
     mov bp, sp
 
@@ -392,6 +406,53 @@ VisitBorder:
 
     pop bp
     ret
+
+
+; ----------------------------------------------------------------------------------------------------------------------
+; Get the screen coordinates (x,y) of a maze cell's top-left corner from its offset in the maze array. This is done by
+; obtaining the cell coordinates from the equation cell_offset = cell_y*MAZE_COLS + cell_x and then scaling them down by
+; a factor of the square cell size.
+; Returns x in DI and y in SI.
+;
+; Stack at start of useful work:
+;           cell_offset BP+4 (cell's linear offset; can be any value in [0;MAZE_ROWS*MAZE_COLS])
+;           RET ADDR    BP+2
+; SP -->    BP          BP+0
+; ----------------------------------------------------------------------------------------------------------------------
+GetScreenCoords:
+    push bp
+    mov bp, sp
+
+    ; convert the linear offset to cell coordinates
+    ; cell_x := cell_offset % MAZE_COLS
+    ; cell_y := cell_offset / MAZE_COLS 
+    mov ax, [bp+4]
+    mov dl, MAZE_COLS
+    div dl
+
+    ; DI <- cell_x
+    ; SI <- cell_y
+    xor dx, dx
+    mov dl, ah
+    mov di, dx
+    mov dl, al
+    mov si, dx
+
+    ; convert cell coordinates to screen coordinates
+    ; DI <- DI*CELL_SIZE
+    ; SI <- SI*CELL_SIZE
+    mov ax, di
+    mov dl, CELL_SIZE
+    imul dl
+    mov di, ax
+    
+    mov ax, si
+    mov dl, CELL_SIZE
+    imul dl
+    mov si, ax
+
+    pop bp
+    ret 2
 
 
 ; ----------------------------------------------------------------------------------------------------------------------
@@ -461,6 +522,41 @@ FillScreen:
 
     pop bp
     ret
+
+
+; ----------------------------------------------------------------------------------------------------------------------
+; Fills the inside of a maze cell of coordinates (x,y) with a solid color.
+; Caller may specify the desired color in the global variable Color.
+;
+; Stack at start of useful work:
+;           y           BP+8 (cell's row number)
+;           x           BP+6 (cell's column number)
+;           RET ADDR    BP+4
+;           CX          BP+2 (caller's iteration counter)
+; SP -->    BP          BP+0
+; ----------------------------------------------------------------------------------------------------------------------
+FillCell:
+    push cx
+    push bp
+    mov bp, sp
+    
+    mov cx, CELL_SIZE-1
+    Fill:
+        ; HLine(x+1, x+7, y+1)
+        inc word [bp+8]
+        push word [bp+8]
+        mov ax, word [bp+6]
+        add ax, CELL_SIZE-1
+        push ax
+        mov ax, word [bp+6]
+        inc ax
+        push ax
+        call HLine
+        loop Fill
+
+    pop bp
+    pop cx
+    ret 4
 
 
 ; ----------------------------------------------------------------------------------------------------------------------
@@ -599,85 +695,3 @@ VLine:
         pop bx
         pop ax
         ret 6
-
-
-
-; ----------------------------------------------------------------------------------------------------------------------
-; Draws a grid pattern of MAZE_COLS*MAZE_ROWS square cells of side CELL_SIZE representing the labyrinth's walls.
-; Walls (a cell's sides) are one-pixel-thick vertical and horizontal lines sharing the color specified in the WALL_COLOR
-; constant. Cells at the border of the screen are filled with the color specified in the BORDER_COLOR constant.
-;
-; Stack at start of useful work:
-;           RET ADDR    BP+2
-; SP -->    BP          BP+0
-; ----------------------------------------------------------------------------------------------------------------------
-DrawWalls:
-    push bp
-    mov bp, sp
-
-    mov byte [Color], WALL_COLOR
-
-    ; draw MAZE_ROWS rows of length SCREEN_WIDTH spaced CELL_SIZE pixels each
-    xor dx, dx
-    mov cx, word MAZE_ROWS
-    RowLoop:
-        push dx ; y
-        push word SCREEN_WIDTH-1 ; x2
-        push word 0 ; x1
-        call HLine
-
-        add dx, CELL_SIZE
-        loop RowLoop
-
-    ; draw MAZE_COLS columns of length SCREEN_HEIGHT spaced CELL_SIZE pixels each
-    xor dx, dx
-    mov cx, word MAZE_COLS
-    ColLoop:
-        push word SCREEN_HEIGHT-1 ; y2
-        push word 0; y1
-        push dx ; x
-        call VLine
-
-        add dx, CELL_SIZE
-        loop ColLoop
-
-
-    mov byte [Color], BORDER_COLOR
-
-    ; fill in the border cells with a single color by drawing 8 adjacent columns/rows for each side
-    xor dx, dx
-    mov cx, word CELL_SIZE
-    FillBorder:
-        ; top rows
-        push dx ; y
-        push SCREEN_WIDTH-1 ; x2
-        push 0 ; x1
-        call HLine
-
-        ; bottom rows
-        mov ax, dx
-        add ax, SCREEN_HEIGHT-CELL_SIZE
-        push ax ; y
-        push SCREEN_WIDTH-1 ; x2
-        push 0 ; x1
-        call HLine
-
-        ; left columns
-        push SCREEN_HEIGHT-1 ; y2
-        push 0 ; y1
-        push dx ; x
-        call VLine
-
-        ; right columns
-        mov ax, dx
-        add ax, SCREEN_WIDTH-CELL_SIZE
-        push SCREEN_HEIGHT-1
-        push 0
-        push ax
-        call VLine
-
-        inc dx
-        loop FillBorder
-
-    pop bp
-    ret
