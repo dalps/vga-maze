@@ -9,17 +9,17 @@ org 100h ; code offset in the current segment
 SCREEN_WIDTH    equ 320
 SCREEN_HEIGHT   equ 200
 SCREEN_PIXELS   equ SCREEN_WIDTH*SCREEN_HEIGHT
-CELL_SIZE       equ 2
+CELL_SIZE       equ 8
 MAZE_COLS       equ SCREEN_WIDTH/CELL_SIZE
 MAZE_ROWS       equ SCREEN_HEIGHT/CELL_SIZE
-WALK_DELAY      equ 1000 ; time to wait between visits; can range from 0 to65535
+WALK_DELAY      equ 50000 ; time to wait between visits; can range from 0 to65535
 
-START_COLOR         equ 0x40
-WALL_COLOR          equ 0x00
-BORDER_COLOR        equ 0x1e
+START_COLOR         equ 0x36
+WALL_COLOR          equ 0x08
+BORDER_COLOR        equ 0x08
 BACKGROUND_COLOR    equ 0x0f
-VISITED_COLOR       equ 0x0f
-DISCOVERED_COLOR    equ 0x0e
+VISITED_COLOR       equ 0x42
+DISCOVERED_COLOR    equ 0x1e
 
 section .data
 Visited         times MAZE_ROWS*MAZE_COLS db 0 ; keeps track of visited cells
@@ -27,7 +27,7 @@ Neighbors       dw -1, MAZE_COLS, 1, -MAZE_COLS ; cardinal directions offsets; W
 
 section .bss
 Color           resb 1 ; value corresponding to a color in the VGA palette
-Seed            resw 1
+Seed            resw 1 ; state of the PRNG
 
 section .text
 main: ; entry point (offset 100h)
@@ -215,7 +215,7 @@ DrawMaze:
     call FillCell
 
     pop bp
-    ret 2
+    ret 2 ; add the specified offset to SP to clear the parameters
 
 
 ; ----------------------------------------------------------------------------------------------------------------------
@@ -564,7 +564,7 @@ FillCell:
 
 
 ; ----------------------------------------------------------------------------------------------------------------------
-; Draws a horizontal line connecting the ends x1 and x2 within the raster row y. Color is specified by the caller.
+; Plots a horizontal line connecting the ends x1 and x2 within the raster row y. Color is specified by the caller.
 ;
 ; Stack at start of useful work:
 ;           y           BP+18 (raster row)
@@ -633,7 +633,7 @@ HLine:
 
 
 ; ----------------------------------------------------------------------------------------------------------------------
-; Draws a vertical line connecting the ends y1 and y2 within the raster column x. Color is specified by the caller.
+; Plots a vertical line connecting the ends y1 and y2 within the raster column x. Color is specified by the caller.
 ;
 ; Stack at start of useful work:
 ;           y2          BP+18 (y coordinate of the higher end of the line)
