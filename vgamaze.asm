@@ -9,20 +9,20 @@ org 100h ; code offset in the current segment
 SCREEN_WIDTH    equ 320
 SCREEN_HEIGHT   equ 200
 SCREEN_PIXELS   equ SCREEN_WIDTH*SCREEN_HEIGHT
-CELL_SIZE       equ 8
+CELL_SIZE       equ 8 ; size of a square cell
 MAZE_COLS       equ SCREEN_WIDTH/CELL_SIZE
 MAZE_ROWS       equ SCREEN_HEIGHT/CELL_SIZE
-WALK_DELAY      equ 50000 ; time to wait between visits; can range from 0 to65535
+WALK_DELAY      equ 50000 ; time to wait between visits in microseconds; can range from 0 to 65535
 
-START_COLOR         equ 0x36
-WALL_COLOR          equ 0x08
-BORDER_COLOR        equ 0x08
-BACKGROUND_COLOR    equ 0x0f
-VISITED_COLOR       equ 0x42
-DISCOVERED_COLOR    equ 0x1e
+START_COLOR         equ 0x36 ; azure
+WALL_COLOR          equ 0x08 ; gray
+BORDER_COLOR        equ 0x08 ; gray
+BACKGROUND_COLOR    equ 0x0f ; white
+VISITED_COLOR       equ 0x42 ; light red
+DISCOVERED_COLOR    equ 0x1e ; very light gray
 
 section .data
-Visited         times MAZE_ROWS*MAZE_COLS db 0 ; keeps track of visited cells
+Visited         times MAZE_ROWS*MAZE_COLS db 0  ; keeps track of visited cells
 Neighbors       dw -1, MAZE_COLS, 1, -MAZE_COLS ; cardinal directions offsets; WEST, SOUTH, EAST, NORTH respectively
 
 section .bss
