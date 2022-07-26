@@ -1,20 +1,25 @@
+; ======================================================================================================================
+; Title:        VGA-Maze
+; Description:  A randomized, recursive maze generator featuring ground-breaking VGA graphics. 
+; Author:       Federico Dal Pio Luogo (July 2022)
+; ======================================================================================================================
+
 org 100h ; code offset in the current segment
-global main
 
 SCREEN_WIDTH    equ 320
 SCREEN_HEIGHT   equ 200
 SCREEN_PIXELS   equ SCREEN_WIDTH*SCREEN_HEIGHT
-CELL_SIZE       equ 8
+CELL_SIZE       equ 2
 MAZE_COLS       equ SCREEN_WIDTH/CELL_SIZE
 MAZE_ROWS       equ SCREEN_HEIGHT/CELL_SIZE
-WALK_DELAY      equ 5000 ; time to wait between visits; can range from 0 to65535
+WALK_DELAY      equ 1000 ; time to wait between visits; can range from 0 to65535
 
-START_COLOR         equ 0x36
-WALL_COLOR          equ 0x08
-BORDER_COLOR        equ 0x08
+START_COLOR         equ 0x40
+WALL_COLOR          equ 0x00
+BORDER_COLOR        equ 0x1e
 BACKGROUND_COLOR    equ 0x0f
-VISITED_COLOR       equ 0x42
-DISCOVERED_COLOR    equ 0x1e
+VISITED_COLOR       equ 0x0f
+DISCOVERED_COLOR    equ 0x0e
 
 section .data
 Visited         times MAZE_ROWS*MAZE_COLS db 0 ; keeps track of visited cells
@@ -24,9 +29,8 @@ section .bss
 Color           resb 1 ; value corresponding to a color in the VGA palette
 Seed            resw 1
 
- 
 section .text
-main:
+main: ; entry point (offset 100h)
     ; load ES with the video screen segment's base address
     mov ax, 0xA000
     mov es, ax
@@ -44,7 +48,7 @@ main:
         ; pick a random cell from where to begin walking the pattern
         push MAZE_ROWS*MAZE_COLS-MAZE_COLS-2    ; cell at (24;38)
         push MAZE_ROWS+1                        ; cell at (1;1)
-        call MiniRNG 
+        call RandInt 
         push ax
         call DrawMaze
      
@@ -240,7 +244,7 @@ Walk:
     ; get a random starting point for the scan of the neightbors' list
     push 3
     push 0
-    call MiniRNG
+    call RandInt
     mov word [bp-2], ax
 
     ; each cell waits a few microsecond before visiting its neighbors
@@ -249,7 +253,7 @@ Walk:
     mov dx, WALK_DELAY
     int 0x15
 
-    mov cx, 4
+    mov cx, 4 ; number of neighbors to check
 
     VisitNeighbors:
         ; compute the linear offset of the neighbor's cell
@@ -465,7 +469,7 @@ GetScreenCoords:
 ;           RET ADDR    BP+2
 ; SP -->    BP          BP+0
 ; ----------------------------------------------------------------------------------------------------------------------
-MiniRNG:
+RandInt:
     push bp
     mov bp, sp
 
