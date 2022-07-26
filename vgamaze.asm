@@ -247,7 +247,7 @@ Walk:
     call RandInt
     mov word [bp-2], ax
 
-    ; each cell waits a few microsecond before visiting its neighbors
+    ; each cell waits a few milliseconds before visiting its neighbors
     mov ah, 0x86
     xor cx, cx
     mov dx, WALK_DELAY
@@ -359,6 +359,12 @@ Walk:
     push si ; y
     push di ; x
     call FillCell
+
+    ; each cell waits a few milliseconds before backtracking
+    mov ah, 0x86
+    xor cx, cx
+    mov dx, WALK_DELAY
+    int 0x15
 
     Exit:
         mov sp, bp
