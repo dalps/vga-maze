@@ -9,21 +9,21 @@ org 100h ; code offset in the current segment
 SCREEN_WIDTH    equ 320
 SCREEN_HEIGHT   equ 200
 SCREEN_PIXELS   equ SCREEN_WIDTH*SCREEN_HEIGHT
-CELL_SIZE       equ 8 ; size of a square cell
+CELL_SIZE       equ 20 ; size of a square cell in pixels
 MAZE_COLS       equ SCREEN_WIDTH/CELL_SIZE
 MAZE_ROWS       equ SCREEN_HEIGHT/CELL_SIZE
 WALK_DELAY      equ 50000 ; time to wait between visits in microseconds; can range from 0 to 65535
 
 START_COLOR         equ 0x36 ; azure
-WALL_COLOR          equ 0x08 ; gray
-BORDER_COLOR        equ 0x08 ; gray
+WALL_COLOR          equ 0x13 ; gray
+BORDER_COLOR        equ 0x13 ; gray
 BACKGROUND_COLOR    equ 0x0f ; white
-VISITED_COLOR       equ 0x42 ; light red
-DISCOVERED_COLOR    equ 0x1e ; very light gray
+VISITED_COLOR       equ 0x41 ; light red
+DISCOVERED_COLOR    equ 0x1d ; very light gray
 
 section .data
 Visited         times MAZE_ROWS*MAZE_COLS db 0  ; keeps track of visited cells
-Neighbors       dw -1, MAZE_COLS, 1, -MAZE_COLS ; cardinal directions offsets; WEST, SOUTH, EAST, NORTH respectively
+Neighbors       dw -1, MAZE_COLS, 1, -MAZE_COLS ; offsets for cardinal directions; WEST, SOUTH, EAST, NORTH respectively
 
 section .bss
 Color           resb 1 ; value corresponding to a color in the VGA palette
@@ -78,7 +78,7 @@ main: ; entry point (offset 100h)
 
 
 ; ----------------------------------------------------------------------------------------------------------------------
-; Draws a grid pattern of MAZE_COLS*MAZE_ROWS square cells of side CELL_SIZE representing the labyrinth's walls.
+; Draws a grid pattern of MAZE_COLS*MAZE_ROWS square cells of side CELL_SIZE representing the labyrinth walls.
 ; Walls (a cell's sides) are one-pixel-thick vertical and horizontal lines sharing the color specified in the WALL_COLOR
 ; constant. Cells at the border of the screen are filled with the color specified in the BORDER_COLOR constant.
 ;
@@ -375,7 +375,7 @@ Walk:
 
 ; ----------------------------------------------------------------------------------------------------------------------
 ; Initializes the visit array to zeros and marks the cells at the screen border as visited to prevent the walking
-; algorithm going past the screen boundary .
+; algorithm going past the screen boundary.
 ;
 ; Stack at start of useful work:
 ;           RET ADDR    BP+2
@@ -421,7 +421,7 @@ InitVisited:
 ; ----------------------------------------------------------------------------------------------------------------------
 ; Get the screen coordinates (x,y) of a maze cell's top-left corner from its offset in the maze array. This is done by
 ; obtaining the cell coordinates from the equation cell_offset = cell_y*MAZE_COLS + cell_x and then scaling them down by
-; a factor of the square cell size.
+; a factor of CELL_SIZE.
 ; Returns x in DI and y in SI.
 ;
 ; Stack at start of useful work:
@@ -570,7 +570,8 @@ FillCell:
 
 
 ; ----------------------------------------------------------------------------------------------------------------------
-; Plots a horizontal line connecting the ends x1 and x2 within the raster row y. Color is specified by the caller.
+; Plots a horizontal line connecting the end points x1 and x2 within the raster row y.
+;  Color is specified by the caller.
 ;
 ; Stack at start of useful work:
 ;           y           BP+18 (raster row)
@@ -639,7 +640,8 @@ HLine:
 
 
 ; ----------------------------------------------------------------------------------------------------------------------
-; Plots a vertical line connecting the ends y1 and y2 within the raster column x. Color is specified by the caller.
+; Plots a vertical line connecting the end points y1 and y2 within the raster column x.
+; Color is specified by the caller.
 ;
 ; Stack at start of useful work:
 ;           y2          BP+18 (y coordinate of the higher end of the line)
